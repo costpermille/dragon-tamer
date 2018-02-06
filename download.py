@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.5
+#!/usr/bin/env python3.6
 import os
 import urllib
 import requests
@@ -10,11 +10,16 @@ headers = {
 
 cfg = {
     'wanted': ['summoner', 'champion', 'mastery', 'item', 'rune', 'profileicon'],
-    'img_base': '/var/www/akamai/cdn-origin/img',
+    'img_base': './data',
     'platform': 'euw',
     'language': 'en_GB',
     'host': 'ddragon.leagueoflegends.com'
 }
+
+if not os.path.exists(cfg['img_base']):
+    print("[!] Created {} for you, since it doesn't exist.".format(cfg['img_base']))
+    os.makedirs(cfg['img_base'])
+
 
 cfg_versions = 'https://%s/realms/%s.json' % (cfg['host'], cfg['platform'])
 versions = requests.get(cfg_versions, headers=headers).json()
@@ -30,18 +35,29 @@ for type in cfg['wanted']:
     for (k, v) in data['data'].items():
         group = v['image']['group']
 
-        key = k
+        try:
+            key = v['key']
+        except KeyError:
+            key = k
 
         if group == "gray_mastery":
             group = "mastery"
 
-        if not os.path.exists(cfg['img_base'] + "/" + group):
-            os.makedirs(cfg['img_base'] + "/" + group)
+        if not os.path.exists("{}/{}/{}".format(cfg['img_base'], ver, group)):
+            os.makedirs("{}/{}/{}".format(cfg['img_base'], ver, group))
 
-        filename = "%s/%s/%s" % (cfg['img_base'], group, v['image']['full'])
-
-        url = "https://%s/cdn/%s/img/%s/%s" % (cfg['host'], ver, group, v['image']['full'])
-
-        urllib.request.urlretrieve(url, filename)
+        filename = "{}/{}/{}/{}.png".format(cfg['img_base'],
+                                        ver, group, key)
+        url = "https://%s/cdn/%s/img/%s/%s" % (
+            cfg['host'], ver, group, v['image']['full'])
 
         print("Acquiring {} from {}".format(filename, url))
+        urllib.request.urlretrieve(url, filename)
+
+    if not os.path.exists("{}/{}".format(cfg['img_base'], "latest")):
+        os.makedirs("{}/{}".format(cfg['img_base'], "latest"))
+
+    v_base = "{}/{}/{}".format("..", ver, group)
+    v_latest = "{}/{}/{}".format(cfg['img_base'], "latest", group)
+    print("[!] Linked {} to {}.".format(v_latest, v_base))
+    os.symlink(v_base, v_latest)
